@@ -1,0 +1,35 @@
+#!/system/bin/sh
+REALMNT=/mnt/fuse/extSdCard
+if ! [ -d "$REALMNT" ]; then 
+  mount -o remount,rw /
+  mkdir -p "$REALMNT" || exit 1
+  mkdir /storage/extSdCard
+
+  find /mnt/fuse -print0 | xargs -0 busybox chown 1015:1015
+  busybox chmod -R 775 /mnt/fuse
+  find /storage/extSdCard -print0 | xargs -0 busybox chown 1015:1015
+  busybox chmod -R 775 /storage/extSdCard
+  rm -r /mnt/external_sd
+  ln -s /storage/extSdCard/ /mnt/external_sd
+
+  mount -o remount,ro /
+fi
+
+if grep -qs '/dev/block/mmcblk0p1' /proc/mounts; then
+    echo "/dev/block/mmcblk1p1 is mounted."
+else
+  mount -t ext4 -o nosuid,nodev,noatime,nodiratime,barrier=1,journal_async_commit,noauto_da_alloc,discard /dev/block/mmcblk0p1 "$REALMNT"
+
+  if grep -qs '/mnt/external_sd' /proc/mounts; then
+    echo "/mnt/external_sd is mounted."
+  else
+    /system/bin/sdcard "$REALMNT" /storage/extSdCard 1000 1023 &
+
+    while ! `grep -qs /mnt/external_sd /proc/mounts`
+    do 
+      echo "/storage/sdcard1 is not mounted (yet, or something went wrong)."
+      sleep 1;
+    done
+	
+	fi;
+fi;
